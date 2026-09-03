@@ -226,6 +226,31 @@ A conversão Markdown → LaTeX continua acontecendo na sua máquina (é Python
 puro); o container serve **só como compilador**. Os arquivos são gravados com
 o seu usuário, então o `build/` continua seu — não vira propriedade do root.
 
+A imagem instala os **mesmos pacotes** que a opção 1 instalaria no sistema, de
+modo que o PDF sai idêntico nos dois caminhos.
+
+#### Usando uma imagem pronta
+
+Se a sua rede bloqueia os espelhos do Debian, a construção da imagem falha com
+`403 Forbidden` ou `InRelease is not signed`. Nesse caso, aponte para uma
+imagem que já traga o TeX Live:
+
+```json
+{ "imagem_latex": "texlive/texlive:latest" }
+```
+
+Com esse campo preenchido, o md2book não constrói imagem nenhuma: escreve um
+`compose.yaml` que usa a que você indicou.
+
+> **Cuidado com as fontes.** Imagens genéricas de TeX Live costumam expor,
+> além das DejaVu TrueType, versões **Type 1** das mesmas famílias. O XeLaTeX
+> pode escolher a Type 1 para o negrito e o `xdvipdfmx` morre com
+> `Error occurred while loading font: .../DejaVuSansMono.pfb`. Foi
+> exatamente o que aconteceu em teste com `texlive/texlive:latest`. A imagem
+> que o md2book constrói não tem esse problema, porque instala as DejaVu pelo
+> `fonts-dejavu`, só em TrueType. Se você usar uma imagem pronta e topar com
+> esse erro, remova do texmf dela as DejaVu Type 1 e rode `fc-cache -f`.
+
 ### 3 — Não instalar nada
 
 Gera os `.tex` e para, sem tentar compilar. É o padrão quando não há terminal
@@ -633,6 +658,7 @@ ocultos como `.env.example` ou `.dockerignore`.
 | `titulo_restantes` | `Complementos` | Nome da parte que recolhe o que sobrou |
 | `ligaduras_tex` | `false` | `true` transforma `--` em travessão e aspas em curvas |
 | `motor` | `xelatex` | `lualatex` também funciona |
+| `imagem_latex` | `null` | Imagem pronta para `--ambiente container`; em `null`, o md2book constrói a sua |
 
 Sobre `remover_numeracao_titulos`: se você escreve `## 1. Instalação`,
 `## 2. Uso`, o LaTeX já numera as seções sozinho e o resultado sairia
@@ -746,6 +772,10 @@ done
 | Quadrados no lugar de letras | Fontes DejaVu ausentes | Instale `fonts-dejavu` |
 | Diagrama ASCII quebrando linha | Diagrama largo demais | Baixe `tamanho_codigo` para `7.0` |
 | Tabela apertada | Muitas colunas | Reduza colunas ou use `papel: "a4paper"` com `duas_faces: false` |
+| `403 Forbidden` ou `InRelease is not signed` ao construir a imagem | A rede bloqueia os espelhos do Debian | Use `imagem_latex` com uma imagem pronta |
+| `xdvipdfmx: Error occurred while loading font: ...pfb` | A imagem resolveu DejaVu para Type 1 | Veja [Usando uma imagem pronta](#usando-uma-imagem-pronta) |
+| `permission denied` ao falar com o Docker | Seu usuário não está no grupo `docker` | `sudo usermod -aG docker $USER` e reabra a sessão |
+| O `build/` virou propriedade do root | Container antigo, sem mapeamento de usuário | Apague o `build/` e rode de novo |
 
 Para investigar a conversão sem esperar o LaTeX, gere só o `.tex`:
 
@@ -764,6 +794,7 @@ md2book/
 ├── modelo/               ← curso de exemplo (gabarito de estrutura)
 └── src/md2book/
     ├── cli.py            ← linha de comando
+    ├── ambiente.py       ← verifica LaTeX/fontes; instala ou usa container
     ├── config.py         ← padrões e leitura do livro.json
     ├── discovery.py      ← acha os .md, ordena, divide em partes
     ├── blocks.py         ← Markdown → árvore de blocos
@@ -778,6 +809,8 @@ O fluxo é uma passagem só, sem estado global:
 
 ```
 descoberta → blocos → inline → render → preâmbulo → main.tex → XeLaTeX
+                                                        ↑
+                                          ambiente.py confere aqui
 ```
 
 Onde mexer, conforme o que você quer mudar:
@@ -790,6 +823,7 @@ Onde mexer, conforme o que você quer mudar:
 | Novo símbolo Unicode sem glifo na fonte | `latexutil.py` (`SIMBOLOS`) |
 | Nova opção de configuração | `config.py` (`CONFIG_PADRAO`) |
 | Nova opção de linha de comando | `cli.py` |
+| Outro gerenciador de pacotes, ou outra imagem de container | `ambiente.py` |
 
 ### Desenvolvimento
 
