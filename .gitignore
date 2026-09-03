@@ -1,0 +1,23 @@
+# Artefatos do Python
+__pycache__/
+*.py[oc]
+*.egg-info
+dist/
+wheels/
+
+# Ambientes virtuais
+.venv
+
+# Saída do md2book: o livro é gerado, não versionado.
+# Se você mudar "saida" no livro.json, acrescente o novo nome aqui.
+build/
+*.pdf
+
+# Arquivos auxiliares do LaTeX, caso alguém compile fora de build/
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.xdv
