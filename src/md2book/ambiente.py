@@ -377,8 +377,13 @@ RUN apt-get update \\
          texlive-lang-portuguese \\
          latexmk \\
          fonts-dejavu \\
+    && fc-cache -f \\
     && rm -rf /var/lib/apt/lists/*
 
+# As DejaVu vêm do fonts-dejavu, em TrueType. Imagens genéricas de TeX Live
+# expõem também versões Type 1 das mesmas famílias, e o xdvipdfmx falha ao
+# carregá-las ("Error occurred while loading font: ...DejaVuSansMono.pfb").
+# Instalar pelo apt evita isso.
 WORKDIR /trabalho
 """
 
@@ -455,12 +460,14 @@ def compilar_em_container(cfg, verboso: bool = True) -> bool:
                   "-halt-on-error", "-file-line-error", "main.tex"]
 
     etapas = []
-    if imagem_configurada(cfg):
-        etapas.append(("Baixando a imagem, se ainda não estiver aqui",
-                       compose + ["pull", "--quiet", "latex"]))
-    else:
+    if not imagem_configurada(cfg):
         etapas.append(("Construindo a imagem (a primeira vez baixa o "
                        "TeX Live e demora)", compose + ["build"]))
+    elif verboso:
+        # Com imagem pronta não há etapa de "pull": o próprio "run" baixa o
+        # que faltar, e um "pull" explícito quebraria numa imagem local.
+        print("  Usando a imagem %s (o docker baixa se faltar)..."
+              % imagem_configurada(cfg))
     etapas.append(("Compilando dentro do container",
                    compose + ["run", "--rm", "latex"] + compilacao))
 
