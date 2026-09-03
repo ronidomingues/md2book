@@ -7,6 +7,8 @@ authors = [
     { name = "Ronivaldo D. Andrade", email = "ronidomingues.ard@gmail.com" }
 ]
 requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["markdown", "latex", "pdf", "livro", "book", "curso", "xelatex"]
 classifiers = [
     "Environment :: Console",
