@@ -29,6 +29,7 @@ escreveu; o md2book cuida de virar livro.
 11. [Usar em outro curso](#usar-em-outro-curso)
 12. [Problemas comuns](#problemas-comuns)
 13. [Organização do código](#organização-do-código)
+14. [Licença](#licença)
 
 ---
 
@@ -835,3 +836,14 @@ uv build                      # gera o wheel em dist/
 
 O `modelo/` funciona como teste de fumaça: se ele compila sem erro e sem
 transbordo de linha, a conversão está sã.
+
+---
+
+## Licença
+
+[MIT](LICENSE) — Copyright (c) 2026 Ronivaldo D. Andrade.
+
+Use, altere e distribua à vontade, inclusive comercialmente; basta manter o
+aviso de copyright. A licença cobre o **md2book**, não os cursos que você
+escrever com ele: o conteúdo dos seus `.md` e o PDF gerado continuam seus,
+sob a licença que você quiser.
