@@ -64,7 +64,7 @@ ser baixadas em [dejavu-fonts.github.io](https://dejavu-fonts.github.io/).
 md2book verificar
 ```
 
-```
+```bash
 Ambiente de compilação (motor: xelatex)
 
   Programas
