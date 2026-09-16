@@ -115,17 +115,32 @@ class Renderizador:
 
     def _lista(self, no: B.Lista) -> str:
         ambiente = "enumerate" if no.ordenada else "itemize"
+        # O Beamer não convive com o enumitem: redefinir a lista lá faz
+        # \labelenumi chamar a si mesmo. Sem opções, o início de contagem
+        # vira \setcounter — que funciona nos dois mundos.
+        sem_opcoes = not self.cfg.get("opcoes_lista", True)
+        antes = []
         opcoes = []
         if no.ordenada and no.inicio != 1:
-            opcoes.append("start=%d" % no.inicio)
-        if any(item.tarefa is not None for item in no.itens):
+            if sem_opcoes:
+                antes.append("\\setcounter{enumi}{%d}" % (no.inicio - 1))
+            else:
+                opcoes.append("start=%d" % no.inicio)
+        if no.ordenada and not sem_opcoes:
+            # Lista aninhada numera com letras, e letra acaba no 26: uma lista
+            # que começa em "1990." (ano lido como marcador) estoura o contador
+            # e derruba a compilação. Acima do limite, número sempre.
+            ultimo = no.inicio + len(no.itens) - 1
+            if ultimo > 26:
+                opcoes.append("label=\\arabic*.")
+        if any(item.tarefa is not None for item in no.itens) and not sem_opcoes:
             # Rótulos próprios (caixa marcada/vazia) precisam de largura fixa,
             # senão cada item começa numa coluna diferente.
             opcoes.append("leftmargin=1.7em, labelwidth=1.1em, "
                           "labelsep=0.6em, align=left")
         cabeca = "\\begin{%s}%s" % (
             ambiente, "[%s]" % ",".join(opcoes) if opcoes else "")
-        linhas = [cabeca]
+        linhas = antes + [cabeca]
         for item in no.itens:
             corpo = self.blocos(item.filhos).strip()
             if item.tarefa is None:
@@ -150,6 +165,16 @@ class Renderizador:
 
         cabecalho = " & ".join(
             r"\textbf{%s}" % inline(c, self.ctx) for c in no.cabecalho)
+        if self.cfg.get("tabela_simples"):
+            # `longtable` não atravessa um frame de Beamer nem uma caixa:
+            # onde a tabela não pode quebrar de página, sai um `tabular`.
+            linhas = [r"\begin{mdtable}{@{}%s@{}}" % colunas,
+                      r"\toprule", cabecalho + r" \\", r"\midrule"]
+            for linha in no.linhas:
+                linhas.append(" & ".join(inline(c, self.ctx) for c in linha)
+                              + r" \\")
+            linhas += [r"\bottomrule", r"\end{mdtable}"]
+            return "\n".join(linhas)
         linhas = [
             r"\begin{mdtable}{@{}%s@{}}" % colunas,
             r"\toprule",

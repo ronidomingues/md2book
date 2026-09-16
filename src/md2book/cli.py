@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, ambiente, build, config, discovery
+from . import __version__, ambiente, build, config, discovery, slides
 
 
 def main(argv=None) -> int:
@@ -13,9 +13,12 @@ def main(argv=None) -> int:
         description="Transforma uma pasta de arquivos Markdown num livro "
                     "em LaTeX/PDF.")
     p.add_argument("comando", nargs="?", default="livro",
-                   choices=["livro", "tex", "listar", "verificar", "init"],
+                   choices=["livro", "tex", "slides", "slides-tex", "listar",
+                            "verificar", "init"],
                    help="livro: gera .tex e compila o PDF (padrão); "
                         "tex: só gera os .tex; "
+                        "slides: gera e compila os slides das aulas; "
+                        "slides-tex: só gera os .tex dos slides; "
                         "listar: mostra a ordem dos capítulos; "
                         "verificar: confere LaTeX e fontes desta máquina; "
                         "init: cria um livro.json de exemplo")
@@ -40,6 +43,9 @@ def main(argv=None) -> int:
 
     if args.comando == "init":
         return _init(args)
+
+    if args.comando in ("slides", "slides-tex"):
+        return _slides(args)
 
     try:
         cfg = config.carregar_config(args.config, args.raiz)
@@ -75,6 +81,47 @@ def main(argv=None) -> int:
         return 0
 
     return _compilar(cfg, res, args.ambiente, verboso)
+
+
+def _slides(args) -> int:
+    """Converte os decks de aula em Beamer e, se pedido, compila os PDFs."""
+    try:
+        cfg = slides.carregar_config(args.config, args.raiz)
+    except (FileNotFoundError, ValueError) as erro:
+        print("ERRO: %s" % erro, file=sys.stderr)
+        return 2
+    if args.saida:
+        cfg.dados["saida"] = args.saida
+    if args.titulo:
+        cfg.dados["curso"] = args.titulo
+    if args.autor:
+        cfg.dados["autor"] = args.autor
+    verboso = not args.silencioso
+
+    entrada = (cfg.raiz / cfg.get("entrada", "md")).resolve()
+    if verboso:
+        print("Decks: %s" % entrada)
+        print("Convertendo Markdown -> Beamer...")
+    res = slides.renderizar(cfg, verboso)
+    if not res.aulas:
+        print("ERRO: nenhum deck .md encontrado em %s" % entrada,
+              file=sys.stderr)
+        return 2
+    if verboso:
+        print("%d aulas, %d slides." % (len(res.aulas), res.slides))
+    for aviso in res.avisos:
+        print("AVISO: %s" % aviso, file=sys.stderr)
+
+    if args.comando == "slides-tex":
+        return 0
+
+    if not slides.compilar(cfg, res, verboso):
+        return 1
+    slides.limpar_intermediarios(cfg)
+    prontos = [item[2] for item in res.aulas if item[2]]
+    print("%d PDFs de aula em %s"
+          % (len(prontos), (cfg.raiz / cfg.get("saida_pdf", "pdf")).resolve()))
+    return 0
 
 
 def _verificar(cfg) -> int:

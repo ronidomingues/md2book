@@ -51,6 +51,17 @@ CONFIG_PADRAO = {
         "simbolos": "DejaVu Sans",
         "escala_texto": 0.92,
         "escala_mono": 0.80,
+        # Pasta com os arquivos de fonte, relativa à pasta de saída (onde o
+        # main.tex é compilado). Preenchida, as fontes são carregadas do disco
+        # e não precisam estar instaladas na máquina — é o que faz o mesmo
+        # PDF sair igual em outro computador.
+        "diretorio": None,
+        "extensao": ".ttf",
+        # Faces de cada família, no padrão do fontspec ("*" = nome da família).
+        # Só valem quando "diretorio" está preenchido.
+        "texto_faces": {},
+        "titulo_faces": {},
+        "mono_faces": {},
     },
     # Corpo do texto dentro das caixas de código, em pontos. Menor faz caber
     # diagramas mais largos. A entrelinha vem daqui quando fica em null.
@@ -68,6 +79,24 @@ CONFIG_PADRAO = {
     "rotulo_linguagem": True,
     "profundidade_sumario": 1,
     "profundidade_numeracao": 2,
+
+    # ------------------------------------------------------ tema/marca ----
+    # Arquivos copiados para a pasta de saída antes de compilar (pacotes .sty,
+    # logos, arquivo de ambiente). Caminhos relativos à raiz do projeto.
+    "recursos": [],
+    # Pastas acrescentadas ao TEXINPUTS na hora de compilar.
+    "texinputs": [],
+    # \usepackage{...} emitidos no fim do preâmbulo, nesta ordem.
+    "pacotes_extra": [],
+    # Linhas LaTeX cruas no fim do preâmbulo (string ou lista de strings).
+    "preambulo_extra": "",
+    # Comando que abre o livro. O padrão desenha a capa do próprio md2book;
+    # um tema pode trocar por um comando seu (ex.: "\\adaberturalivro").
+    "capa_comando": "\\mdcapa",
+    # Comandos emitidos logo antes de \end{document} (colofão, ficha final).
+    "encerramento": [],
+    # Tabelas como `tabular` simples em vez de `longtable` (slides e caixas).
+    "tabela_simples": False,
 
     # ------------------------------------------------ anexo de código ----
     "apendice_fontes": {

@@ -23,16 +23,9 @@ def _cor(hexa: str) -> str:
 
 def gerar_preambulo(cfg, linguagens) -> str:
     """Monta o preâmbulo completo, incluindo uma caixa por linguagem vista."""
-    f = cfg.get("fontes", {})
     opcoes = [cfg.get("corpo", "11pt"), cfg.get("papel", "a4paper")]
     opcoes.append("twoside,openright" if cfg.get("duas_faces", True)
                   else "oneside,openany")
-
-    escala_texto = f.get("escala_texto", 0.92)
-    escala_mono = f.get("escala_mono", "MatchLowercase")
-    escala_mono = ("Scale=MatchLowercase" if escala_mono == "MatchLowercase"
-                   else "Scale=%s" % escala_mono)
-    ligaduras = "Ligatures=TeX, " if cfg.get("ligaduras_tex") else ""
 
     L = []
     A = L.append
@@ -60,14 +53,7 @@ def gerar_preambulo(cfg, linguagens) -> str:
     A(r"\usepackage{xurl}")
     A("")
 
-    A(r"%% ------------------------------------------------------- fontes ---")
-    A(r"\setmainfont{%s}[%sScale=%s]" % (f.get("texto", "DejaVu Serif"),
-                                         ligaduras, escala_texto))
-    A(r"\setsansfont{%s}[%sScale=%s]" % (f.get("titulo", "DejaVu Sans"),
-                                         ligaduras, escala_texto))
-    A(r"\setmonofont{%s}[%s]" % (f.get("mono", "DejaVu Sans Mono"), escala_mono))
-    A(r"\newfontfamily\mdsym{%s}" % f.get("simbolos", "DejaVu Sans"))
-    A("")
+    A(bloco_fontes(cfg))
 
     A(r"%% -------------------------------------------------------- cores ---")
     A(r"\definecolor{mdaccent}{HTML}{%s}" % _cor(cfg.get("cor_destaque", "1F4E79")))
@@ -150,6 +136,74 @@ def gerar_preambulo(cfg, linguagens) -> str:
     A(gerar_titulos(cfg))
     A(gerar_cabecalhos(cfg))
     A(gerar_capa(cfg))
+    # Por último: o tema vê tudo já definido e pode sobrescrever o que quiser.
+    A(bloco_extras(cfg))
+    return "\n".join(L)
+
+
+def bloco_fontes(cfg) -> str:
+    """Carrega as três famílias, do sistema ou de uma pasta de arquivos.
+
+    Com `fontes.diretorio` preenchido, o fontspec lê os arquivos do disco:
+    o PDF sai igual em qualquer máquina, mesmo sem a fonte instalada. Sem ele,
+    vale o nome da família — o caminho curto de quem já tem a fonte no sistema.
+    """
+    f = cfg.get("fontes", {})
+    escala_texto = f.get("escala_texto", 0.92)
+    escala_mono = f.get("escala_mono", "MatchLowercase")
+    escala_mono = ("Scale=MatchLowercase" if escala_mono == "MatchLowercase"
+                   else "Scale=%s" % escala_mono)
+    ligaduras = "Ligatures=TeX, " if cfg.get("ligaduras_tex") else ""
+    diretorio = f.get("diretorio")
+    extensao = f.get("extensao", ".ttf")
+
+    def opcoes(faces, extras):
+        itens = []
+        if diretorio:
+            caminho = str(diretorio).rstrip("/") + "/"
+            itens.append("Path=%s" % caminho)
+            itens.append("Extension=%s" % extensao)
+            for chave, valor in (faces or {}).items():
+                itens.append("%s=%s" % (chave, valor))
+        itens.extend(x for x in extras if x)
+        return "[%s]" % ", ".join(itens) if itens else ""
+
+    lig = ligaduras.rstrip(", ") or None
+    L = [r"%% ------------------------------------------------------- fontes ---"]
+    if diretorio:
+        L.append(r"%% Fontes lidas de %s — não precisam estar instaladas."
+                 % diretorio)
+    L.append(r"\setmainfont{%s}%s" % (
+        f.get("texto", "DejaVu Serif"),
+        opcoes(f.get("texto_faces"), [lig, "Scale=%s" % escala_texto])))
+    L.append(r"\setsansfont{%s}%s" % (
+        f.get("titulo", "DejaVu Sans"),
+        opcoes(f.get("titulo_faces"), [lig, "Scale=%s" % escala_texto])))
+    L.append(r"\setmonofont{%s}%s" % (
+        f.get("mono", "DejaVu Sans Mono"),
+        opcoes(f.get("mono_faces"), [escala_mono])))
+    # A família de símbolos fica sempre no nome instalado: é a rede de
+    # segurança para ✓, ✗ e ⚠, que a fonte do texto pode não desenhar.
+    L.append(r"\newfontfamily\mdsym{%s}" % f.get("simbolos", "DejaVu Sans"))
+    L.append("")
+    return "\n".join(L)
+
+
+def bloco_extras(cfg) -> str:
+    """Pacotes e linhas de preâmbulo acrescentados por um tema."""
+    L = []
+    pacotes = cfg.get("pacotes_extra") or []
+    if pacotes:
+        L.append(r"%% ------------------------------------------ tema da marca ---")
+        for pacote in pacotes:
+            L.append(r"\usepackage{%s}" % pacote)
+        L.append("")
+    extra = cfg.get("preambulo_extra") or ""
+    if isinstance(extra, (list, tuple)):
+        extra = "\n".join(extra)
+    if extra.strip():
+        L.append(extra.rstrip())
+        L.append("")
     return "\n".join(L)
 
 

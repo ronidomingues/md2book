@@ -9,7 +9,7 @@ Exige XeLaTeX instalado no sistema para chegar ao PDF.
 """
 
 # Mantenha em sincronia com a versão declarada no pyproject.toml.
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .config import Config, carregar_config, CONFIG_PADRAO  # noqa: F401
 

@@ -1,5 +1,6 @@
 """Orquestração: renderiza os capítulos, monta o main.tex e compila o PDF."""
 
+import os
 import shutil
 import subprocess
 import sys
@@ -72,11 +73,50 @@ def renderizar(cfg, verboso=True) -> Resultado:
             print("  anexo de código-fonte: %d arquivos" % res.fontes)
 
     res.linguagens = set(r.linguagens)
+    copiados = copiar_recursos(cfg)
+    if copiados and verboso:
+        for nome in copiados:
+            print("  recurso do tema -> %s" % nome)
     conteudo = _montar_main(cfg, estrutura, r.linguagens, anexo)
     res.main = cfg.dir_saida / "main.tex"
     res.main.parent.mkdir(parents=True, exist_ok=True)
     res.main.write_text(conteudo, encoding="utf-8")
     return res
+
+
+def copiar_recursos(cfg):
+    r"""Copia os arquivos do tema (.sty, logos, ambiente) para a pasta de saída.
+
+    O LaTeX resolve `\usepackage` no diretório de compilação, e o PDF precisa
+    continuar sendo reconstruível meses depois: por isso o tema é copiado para
+    dentro do projeto em vez de ser alcançado por um caminho absoluto.
+    """
+    recursos = cfg.get("recursos") or []
+    if not recursos:
+        return []
+    destino_base = cfg.dir_saida
+    destino_base.mkdir(parents=True, exist_ok=True)
+    copiados = []
+    for item in recursos:
+        if isinstance(item, dict):
+            origem, destino = item.get("de"), item.get("para")
+        else:
+            origem, destino = item, None
+        caminho = Path(origem)
+        if not caminho.is_absolute():
+            caminho = cfg.raiz / caminho
+        if not caminho.exists():
+            print("AVISO: recurso do tema não encontrado: %s" % caminho,
+                  file=sys.stderr)
+            continue
+        alvo = destino_base / (destino or caminho.name)
+        alvo.parent.mkdir(parents=True, exist_ok=True)
+        if caminho.is_dir():
+            shutil.copytree(caminho, alvo, dirs_exist_ok=True)
+        else:
+            shutil.copyfile(caminho, alvo)
+        copiados.append(str(alvo.relative_to(destino_base)))
+    return copiados
 
 
 def _cabecalho_arquivo(relativo: str) -> str:
@@ -123,9 +163,13 @@ def _linguagem(caminho: Path) -> str:
 
 def _montar_main(cfg, estrutura, linguagens, anexo) -> str:
     from .inline import renderizar as inline
+    capa = cfg.get("capa_comando", r"\mdcapa") or ""
     L = [preamble.gerar_preambulo(cfg, linguagens), "",
          r"\begin{document}", "",
-         r"\frontmatter", r"\mdcapa", r"\tableofcontents", ""]
+         r"\frontmatter"]
+    if capa:
+        L.append(capa)
+    L += [r"\tableofcontents", ""]
 
     if estrutura.abertura:
         # No miolo pré-textual as seções não levam número: um "0.3" antes do
@@ -148,6 +192,11 @@ def _montar_main(cfg, estrutura, linguagens, anexo) -> str:
     if anexo:
         L += [r"\appendix", r"\input{tex/%s}" % anexo[:-4], ""]
 
+    for comando in cfg.get("encerramento") or []:
+        L.append(comando)
+    if cfg.get("encerramento"):
+        L.append("")
+
     L += [r"\end{document}", ""]
     return "\n".join(L)
 
@@ -159,14 +208,16 @@ def compilar(cfg, res: Resultado, verboso=True) -> bool:
     motor = cfg.get("motor", "xelatex")
     diretorio = cfg.dir_saida
 
+    ambiente_tex = ambiente_de_compilacao(cfg)
     if shutil.which("latexmk"):
         cmd = ["latexmk", "-%s" % motor, "-interaction=nonstopmode",
                "-halt-on-error", "-file-line-error", "main.tex"]
-        ok = _rodar([cmd], diretorio, verboso)
+        ok = _rodar([cmd], diretorio, verboso, ambiente_tex)
     elif shutil.which(motor):
         cmd = [motor, "-interaction=nonstopmode", "-halt-on-error",
                "-file-line-error", "main.tex"]
-        ok = _rodar([cmd] * int(cfg.get("passagens", 3)), diretorio, verboso)
+        ok = _rodar([cmd] * int(cfg.get("passagens", 3)), diretorio, verboso,
+                    ambiente_tex)
     else:
         print("ERRO: nem latexmk nem %s foram encontrados no PATH." % motor,
               file=sys.stderr)
@@ -190,12 +241,27 @@ def publicar_pdf(cfg, res: Resultado) -> bool:
     return True
 
 
-def _rodar(comandos, diretorio: Path, verboso: bool) -> bool:
+def ambiente_de_compilacao(cfg):
+    """Variáveis de ambiente do LaTeX, com as pastas extras no TEXINPUTS.
+
+    O ponto-e-vírgula final (":" no Unix) preserva os caminhos padrão do
+    TeX Live — sem ele, o LaTeX deixaria de achar os próprios pacotes.
+    """
+    extras = [str((cfg.raiz / d).resolve()) for d in cfg.get("texinputs") or []]
+    if not extras:
+        return None
+    env = dict(os.environ)
+    atual = env.get("TEXINPUTS", "")
+    env["TEXINPUTS"] = os.pathsep.join(extras) + os.pathsep + (atual or "")
+    return env
+
+
+def _rodar(comandos, diretorio: Path, verboso: bool, env=None) -> bool:
     for i, cmd in enumerate(comandos, 1):
         if verboso:
             print("  [%d/%d] %s" % (i, len(comandos), " ".join(cmd)))
         proc = subprocess.run(cmd, cwd=diretorio, capture_output=True,
-                              text=True, errors="replace")
+                              text=True, errors="replace", env=env)
         if proc.returncode != 0:
             print(_resumo_erro(proc.stdout + proc.stderr), file=sys.stderr)
             return False
