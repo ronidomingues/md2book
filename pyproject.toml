@@ -1,6 +1,6 @@
 [project]
 name = "md2book"
-version = "1.0.0"
+version = "1.1.0"
 description = "Converte uma pasta de arquivos Markdown num livro completo em LaTeX e PDF, pronto para impressão."
 readme = "README.md"
 authors = [
