@@ -2,15 +2,19 @@
 
 Transforma uma pasta de arquivos Markdown num **livro completo em PDF**, com
 capa, sumário, partes, capítulos numerados, referências cruzadas clicáveis e
-anexo de código-fonte — pronto para ler na tela ou imprimir.
+anexo de código-fonte — pronto para ler na tela ou imprimir. E, do mesmo
+repertório, transforma decks de aula em **slides de Beamer em PDF**.
 
 Feito para cursos escritos em Markdown. Você escreve os arquivos como sempre
-escreveu; o md2book cuida de virar livro.
+escreveu; o md2book cuida de virar livro e de virar aula.
 
 - **Sem Pandoc.** A conversão Markdown → LaTeX é própria.
 - **Sem dependências Python.** Só a biblioteca padrão.
 - **Reutilizável.** O mesmo programa serve para qualquer curso com a mesma
   estrutura de pastas.
+- **Com tema.** Um pacote `.sty` seu pode assumir capa, créditos e rodapé sem
+  que você precise alterar o md2book — é assim que a identidade da
+  [Andrada's Dev](#tema-da-marca-pacotes-e-arquivos-externos) entra.
 
 ---
 
@@ -24,12 +28,14 @@ escreveu; o md2book cuida de virar livro.
 6. [Manual dos comandos](#manual-dos-comandos)
 7. [Opções da linha de comando](#opções-da-linha-de-comando)
 8. [O arquivo `livro.json`](#o-arquivo-livrojson)
-9. [Markdown suportado](#markdown-suportado)
-10. [O que é gerado](#o-que-é-gerado)
-11. [Usar em outro curso](#usar-em-outro-curso)
-12. [Problemas comuns](#problemas-comuns)
-13. [Organização do código](#organização-do-código)
-14. [Licença](#licença)
+9. [Tema da marca: pacotes e arquivos externos](#tema-da-marca-pacotes-e-arquivos-externos)
+10. [Slides de aula](#slides-de-aula)
+11. [Markdown suportado](#markdown-suportado)
+12. [O que é gerado](#o-que-é-gerado)
+13. [Usar em outro curso](#usar-em-outro-curso)
+14. [Problemas comuns](#problemas-comuns)
+15. [Organização do código](#organização-do-código)
+16. [Licença](#licença)
 
 ---
 
@@ -453,6 +459,20 @@ md2book tex
 Use quando quiser inspecionar ou ajustar o LaTeX à mão, ou quando não houver
 XeLaTeX na máquina. Os arquivos ficam legíveis em `build/tex/`.
 
+### `md2book slides` e `md2book slides-tex`
+
+Converte os decks de aula em Beamer e compila um PDF por aula, mais o PDF único
+com todas. A configuração é o `slides.json`, não o `livro.json`:
+
+```bash
+md2book slides                  # decks de ./md → ./latex → ./pdf
+md2book slides-tex              # só o LaTeX
+md2book slides -c 97-publicacao/slides/slides.json
+```
+
+O formato do deck e os campos do `slides.json` estão em
+[Slides de aula](#slides-de-aula).
+
 ### `md2book listar`
 
 Mostra, sem gerar nada, a ordem em que os capítulos vão entrar, as partes e os
@@ -509,7 +529,7 @@ Recusa-se a sobrescrever um `livro.json` que já exista.
 | `-r`, `--raiz PASTA` | Pasta com os `.md`. Sem isto, usa a pasta atual |
 | `-c`, `--config ARQUIVO` | Usa outro JSON de configuração |
 | `-s`, `--saida PASTA` | Onde escrever (padrão: `build`) |
-| `-t`, `--titulo TEXTO` | Título do livro, na capa |
+| `-t`, `--titulo TEXTO` | Título do livro, na capa (nos slides, o nome do curso) |
 | `-a`, `--autor NOME` | Autor, impresso na capa e nos metadados do PDF |
 | `--ambiente MODO` | O que fazer se faltar LaTeX: `perguntar` (padrão), `instalar`, `container`, `parar`, `ignorar` |
 | `-q`, `--silencioso` | Só mostra o resultado final e os erros |
@@ -646,7 +666,7 @@ ocultos como `.env.example` ou `.dockerignore`.
 | `geometria` | `inner=3.0cm,outer=2.4cm,…` | Qualquer chave do pacote `geometry` |
 | `cor_destaque` | `1F4E79` | Cor de títulos, filetes, links e etiquetas |
 | `cor_codigo_fundo` | `F6F6F4` | Fundo das caixas de código |
-| `fontes` | DejaVu | `texto`, `titulo`, `mono`, `simbolos` e escalas |
+| `fontes` | DejaVu | `texto`, `titulo`, `mono`, `simbolos`, escalas e `diretorio` (abaixo) |
 | `tamanho_codigo` | `7.8` | Pontos. Menor faz caber diagramas mais largos |
 | `sangria_codigo` | `0.9cm` | Quanto as caixas de código avançam nas margens |
 | `rotulo_linguagem` | `true` | Etiqueta "bash", "YAML" sobre cada caixa |
@@ -661,11 +681,160 @@ ocultos como `.env.example` ou `.dockerignore`.
 | `motor` | `xelatex` | `lualatex` também funciona |
 | `imagem_latex` | `null` | Imagem pronta para `--ambiente container`; em `null`, o md2book constrói a sua |
 
+#### Fontes de uma pasta, sem instalar nada
+
+Por padrão, `fontes.texto` é o **nome da família instalada** no sistema. Preencha
+`fontes.diretorio` e o fontspec passa a ler os arquivos do disco — o PDF sai igual
+em outra máquina, mesmo sem a fonte instalada:
+
+```json
+{
+  "fontes": {
+    "diretorio": "../../tema/fontes",
+    "extensao": ".ttf",
+    "texto": "Inter",
+    "texto_faces": { "UprightFont": "*-Regular", "BoldFont": "*-Bold" },
+    "mono": "JetBrainsMono",
+    "mono_faces": { "UprightFont": "*-Regular", "BoldFont": "*-Bold" }
+  }
+}
+```
+
+O caminho é **relativo à pasta de saída** (onde o `main.tex` é compilado), e o `*`
+dos `*_faces` é substituído pelo nome da família, como manda o fontspec. Sem
+`diretorio`, os campos `*_faces` são ignorados.
+
 Sobre `remover_numeracao_titulos`: se você escreve `## 1. Instalação`,
 `## 2. Uso`, o LaTeX já numera as seções sozinho e o resultado sairia
 "2.1 1. Instalação". Por isso a numeração escrita à mão é removida por padrão.
 Títulos como `## 1979 → 2026` ou `## 512 MB de RAM` são preservados: só conta
 como numeração o padrão "número + ponto/parêntese + espaço".
+
+---
+
+## Tema da marca: pacotes e arquivos externos
+
+O md2book desenha uma capa simples e um miolo sóbrio. Quando o livro precisa da
+identidade de uma empresa — capa própria, página de créditos, rodapé com marca —
+você **não altera o md2book**: escreve um pacote LaTeX e o declara na configuração.
+
+```json
+{
+  "recursos": [
+    "97-publicacao/tema/andradasdev-curso.sty",
+    "97-publicacao/tema/andradasdev-curso-ambiente.tex"
+  ],
+  "pacotes_extra": ["andradasdev-curso"],
+  "capa_comando": "\\adaberturalivro",
+  "encerramento": ["\\adcolofao"],
+  "preambulo_extra": "\\renewcommand{\\mdcode}[1]{\\texttt{#1}}",
+  "texinputs": ["97-publicacao/tema"]
+}
+```
+
+| Campo | O que faz |
+|---|---|
+| `recursos` | Arquivos copiados para a pasta de saída antes de compilar. Caminhos relativos à raiz do projeto. Pode ser `{"de": "...", "para": "..."}` para renomear. |
+| `pacotes_extra` | `\usepackage{...}` emitidos **no fim** do preâmbulo — o tema vê tudo já definido e pode sobrescrever. |
+| `preambulo_extra` | Linhas LaTeX cruas no fim do preâmbulo (string ou lista). |
+| `capa_comando` | Comando que abre o livro. Padrão `\mdcapa`; vazio (`""`) tira a capa. |
+| `encerramento` | Comandos emitidos logo antes de `\end{document}` (colofão, ficha final). |
+| `texinputs` | Pastas acrescentadas ao `TEXINPUTS` na compilação, para um `.sty` que mora fora. |
+| `tabela_simples` | Tabelas como `tabular` em vez de `longtable` (dentro de caixa ou de frame). |
+| `opcoes_lista` | `false` desliga as opções de `enumitem` nas listas (obrigatório em Beamer). |
+
+Copiar o `.sty` para dentro do projeto, em vez de apontar para ele por um caminho
+absoluto, é deliberado: o PDF continua reconstruível em outra máquina e daqui a
+anos, inclusive por quem não tem o repositório onde o tema nasceu.
+
+Um tema completo, pronto para copiar, está em
+`08-cursos/latex/andradasdev-curso.sty` do repositório da marca Andrada's Dev.
+
+---
+
+## Slides de aula
+
+O mesmo conversor que faz o livro faz os slides — mas **não do mesmo texto**. Um
+livro se lê, um slide se projeta. A fonte dos slides é um *deck* escrito à parte,
+um arquivo por aula.
+
+```bash
+md2book slides                 # gera os .tex e compila um PDF por aula
+md2book slides-tex             # só os .tex
+md2book slides -c slides.json  # apontando a configuração
+```
+
+### O formato do deck
+
+````markdown
+---
+aula: Aula 03
+curso: Docker e Containers
+subtitulo: Camadas, cache e o que vai para a imagem
+duracao: 45 min
+---
+
+# Como o Docker monta uma imagem
+
+## Camadas
+A ideia que explica quase todo comportamento estranho do build.
+
+### Uma camada é um diff
+
+- Cada instrução do Dockerfile cria **uma camada**.
+- A camada guarda só o que mudou.
+
+```notas
+Roteiro do professor: mostre `docker history` antes da teoria.
+```
+
+### O cache quebra de cima para baixo
+
+Tabelas, código, citações e imagens funcionam como em qualquer arquivo.
+````
+
+| Marca | Vira |
+|---|---|
+| bloco `---` no topo | metadados da aula (`aula`, `curso`, `subtitulo`, `data`, `autor`) |
+| `#` | título da aula — a capa |
+| `##` | parte da aula — tela de transição (`\adsecao`) |
+| `###` | **um slide** |
+| `####` e mais fundo | destaque em negrito dentro do slide |
+| ` ```notas ` (ou `:::notas … :::`) | `\note{}` — roteiro do professor |
+| `---` dentro de um slide | continua o slide na tela seguinte, com `(cont.)` |
+
+Todo frame é gerado como `fragile`: código verbatim funciona em qualquer slide.
+
+### O `slides.json`
+
+```json
+{
+  "curso": "Docker e Containers",
+  "entrada": "md",
+  "saida": "latex",
+  "saida_pdf": "pdf",
+  "pdf_unico": "docker-slides-completo.pdf",
+  "proporcao": "169",
+  "tema": "andradasdev",
+  "limite_linhas_slide": 12
+}
+```
+
+| Campo | Padrão | Para quê |
+|---|---|---|
+| `entrada` | `md` | Pasta dos decks, relativa à raiz |
+| `saida` / `saida_pdf` | `latex` / `pdf` | Onde ficam os `.tex` e os PDFs |
+| `pdf_unico` | `slides-completo.pdf` | Junta as aulas num PDF só (`pdfunite` ou Ghostscript); vazio desliga |
+| `proporcao` | `169` | `43` para projetor antigo |
+| `alinhamento_vertical` | `t` | Conteúdo no topo; `""` volta ao centralizado do Beamer |
+| `tema` / `opcoes_tema` | `andradasdev` | Qualquer tema Beamer instalado ou copiado por `recursos` |
+| `capa_comando`, `secao_comando`, `fechamento_comando` | comandos do tema | Trocáveis por comandos seus |
+| `notas` | `nenhuma` | `segunda-tela` compila com as notas visíveis |
+| `limite_linhas_slide` | `12` | Acima disso, **avisa** (não falha): provavelmente são dois slides |
+| `cor_codigo_fundo`, `cor_codigo_texto` | escuros | A caixa de código dos slides é escura por padrão |
+
+O aviso de slide grande é intencionalmente um aviso: quem decide o que cabe na aula
+é quem ensina. Mas ele quase sempre acerta.
 
 ---
 
@@ -802,8 +971,9 @@ md2book/
     ├── inline.py         ← Markdown embutido → LaTeX
     ├── latexutil.py      ← escape, símbolos, pontos de quebra
     ├── render.py         ← árvore → corpo LaTeX do capítulo
-    ├── preamble.py       ← preâmbulo, capa, estilos, caixas
-    └── build.py          ← monta o main.tex e chama o compilador
+    ├── preamble.py       ← preâmbulo, capa, estilos, caixas, fontes
+    ├── slides.py         ← decks de aula → Beamer → PDF
+    └── build.py          ← monta o main.tex, copia o tema e chama o compilador
 ```
 
 O fluxo é uma passagem só, sem estado global:
@@ -824,6 +994,8 @@ Onde mexer, conforme o que você quer mudar:
 | Novo símbolo Unicode sem glifo na fonte | `latexutil.py` (`SIMBOLOS`) |
 | Nova opção de configuração | `config.py` (`CONFIG_PADRAO`) |
 | Nova opção de linha de comando | `cli.py` |
+| Formato do deck, frames, aviso de slide grande | `slides.py` |
+| Capa, créditos ou rodapé da sua marca | um `.sty` seu + `pacotes_extra` (não mexa no md2book) |
 | Outro gerenciador de pacotes, ou outra imagem de container | `ambiente.py` |
 
 ### Desenvolvimento
@@ -835,7 +1007,8 @@ uv build                      # gera o wheel em dist/
 ```
 
 O `modelo/` funciona como teste de fumaça: se ele compila sem erro e sem
-transbordo de linha, a conversão está sã.
+transbordo de linha, a conversão está sã. Para os slides, o gabarito equivalente é
+`08-cursos/exemplo/aula-00-modelo.md` no repositório da marca.
 
 ---
 
