@@ -61,7 +61,7 @@ _ESPACOS_RE = re.compile("|".join(_ESPACOS))
 
 def limpar(texto: str) -> str:
     """Remove caracteres invisíveis (o espaço fino/duro vira ~ inquebrável)."""
-    return _INVISIVEIS_RE.sub("", texto)
+    return _controles_visiveis(_INVISIVEIS_RE.sub("", texto))
 
 
 def _marcar_quebras(texto: str) -> str:
@@ -106,7 +106,22 @@ def escapar_verbatim(texto: str) -> str:
     texto = texto.replace("\t", "    ").replace(" ", " ")
     for ch, ascii_ in SIMBOLOS_ASCII.items():
         texto = texto.replace(ch, ascii_)
-    return texto
+    return _controles_visiveis(texto)
+
+
+# Caracteres de controle C0 (menos a quebra de linha), que o LaTeX recusa com
+# "Text line contains an invalid character" e derrubam a compilação inteira.
+# Aparecem de verdade em material técnico: sequência de escape de terminal,
+# BEL, NUL vindo de um dump. Viram notação de circunflexo, como faz `cat -v`.
+_CONTROLES_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+
+
+def _controles_visiveis(texto: str) -> str:
+    def trocar(m):
+        codigo = ord(m.group(0))
+        return "^?" if codigo == 0x7F else "^" + chr(codigo + 64)
+    return _CONTROLES_RE.sub(trocar, texto)
+
 
 
 # ------------------------------------------------------- código embutido ----
